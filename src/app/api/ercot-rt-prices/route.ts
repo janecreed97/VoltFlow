@@ -158,7 +158,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     if (!lmpRes.ok) {
-      return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true });
+      const body = await lmpRes.text().catch(() => "");
+      return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true, debugReason: `lmp_api_${lmpRes.status}: ${body.slice(0, 200)}` });
     }
 
     const lmpJson = await lmpRes.json() as {
@@ -168,7 +169,7 @@ export async function GET(req: NextRequest) {
 
     const lmpRows = lmpJson.data ?? [];
     if (lmpRows.length < 288) {
-      return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true });
+      return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true, debugReason: `insufficient_lmp_rows: got ${lmpRows.length}` });
     }
 
     // Parse LMP rows into 288-element array
