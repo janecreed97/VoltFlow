@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RTInterval } from "@/lib/comprehensiveEngine";
 
+export const dynamic = "force-dynamic";
+
 // ─── ERCOT Azure B2C auth ─────────────────────────────────────────────────────
 const TOKEN_URL =
   "https://ercotb2c.b2clogin.com/ercotb2c.onmicrosoft.com/B2C_1_PUBAPI-ROPC-FLOW/oauth2/v2.0/token";
