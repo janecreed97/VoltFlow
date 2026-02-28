@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/economics", label: "How It Works" },
   { href: "/simulator", label: "Simulator" },
+  { href: "/comprehensive", label: "Comprehensive" },
 ];
 
 export default function Nav() {
