@@ -181,6 +181,7 @@ export default function SimulatorPage() {
   const [node, setNode] = useState<SettlementPoint>("HB_NORTH");
   const [date, setDate] = useState(todayStr());
   const [prices, setPrices] = useState<number[] | null>(null);
+  const [isDemo, setIsDemo] = useState(true);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -192,6 +193,7 @@ export default function SimulatorPage() {
     setLoading(true);
     fetchErcotPrices(node, date).then((d) => {
       setPrices(d.prices);
+      setIsDemo(d.isDemo);
       setLoading(false);
     });
   }, [node, date]);
@@ -243,11 +245,18 @@ export default function SimulatorPage() {
             className="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
 
-          {/* Demo badge */}
-          <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold px-3 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Demo Data
-          </span>
+          {/* Live / demo badge */}
+          {isDemo ? (
+            <span className="inline-flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold px-3 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Demo Data
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              Live ERCOT
+            </span>
+          )}
         </div>
       </div>
 
