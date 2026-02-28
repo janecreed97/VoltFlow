@@ -54,17 +54,21 @@ export function calculateBessRevenue(
   const allDischargePrices: number[] = [];
   let cyclesExecuted = 0;
 
+  // Each cycle must start after the previous cycle's last discharge hour.
+  // This enforces charge→discharge→charge→discharge across all cycles.
+  let cycleStartHour = 0;
+
   for (let c = 0; c < numCycles; c++) {
+    // Only consider hours from cycleStartHour onward
     const available = Array.from({ length: 24 }, (_, i) => i).filter(
-      (h) => !usedHours.has(h)
+      (h) => h >= cycleStartHour && !usedHours.has(h)
     );
 
     if (available.length < hoursPerCycle * 2) break;
 
-    // Find the best charge→discharge split by trying every possible dividing
-    // hour T. Hours before T are candidates for charging; hours from T onwards
-    // are candidates for discharging. This guarantees charge always precedes
-    // discharge within each cycle.
+    // Try every split point T within the available window.
+    // Charge candidates: available hours < T
+    // Discharge candidates: available hours >= T
     let bestProfit = -Infinity;
     let bestChargeHours: number[] = [];
     let bestDischargeHours: number[] = [];
@@ -72,7 +76,7 @@ export function calculateBessRevenue(
     let bestChargeCost = 0;
     let bestVomCost = 0;
 
-    for (let T = hoursPerCycle; T <= 24 - hoursPerCycle; T++) {
+    for (let T = cycleStartHour + hoursPerCycle; T <= 24 - hoursPerCycle; T++) {
       const leftAvail = available.filter((h) => h < T);
       const rightAvail = available.filter((h) => h >= T);
 
@@ -103,8 +107,8 @@ export function calculateBessRevenue(
       }
     }
 
-    // Commercial guardrail — skip if no profitable split exists
-    if (bestProfit <= 0) continue;
+    // No profitable split found — no point trying further cycles
+    if (bestProfit <= 0) break;
 
     for (const h of bestChargeHours) {
       actions[h] = "charge";
@@ -121,6 +125,9 @@ export function calculateBessRevenue(
     totalChargingCost += bestChargeCost;
     totalVomCost += bestVomCost;
     cyclesExecuted++;
+
+    // Next cycle must begin after this cycle's last discharge hour
+    cycleStartHour = Math.max(...bestDischargeHours) + 1;
   }
 
   // Build hourly dispatch with SOC tracking
