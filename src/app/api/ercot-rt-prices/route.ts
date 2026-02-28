@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
   const subKey = process.env.ERCOT_SUBSCRIPTION_KEY;
 
   if (!username || !password || !subKey) {
-    return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true });
+    return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true, debugReason: "missing_env_vars" });
   }
 
   try {
@@ -258,7 +258,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ intervals, isDemo: false });
-  } catch {
-    return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ intervals: getMockIntervals(node, date), isDemo: true, debugReason: msg });
   }
 }

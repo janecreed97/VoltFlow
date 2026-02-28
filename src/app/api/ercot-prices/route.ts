@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   // No credentials → return mock immediately
   if (!username || !password || !subKey) {
-    return NextResponse.json({ prices: getMockPrices(node, date), isDemo: true });
+    return NextResponse.json({ prices: getMockPrices(node, date), isDemo: true, debugReason: "missing_env_vars" });
   }
 
   try {
@@ -144,8 +144,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ prices, isDemo: false });
-  } catch {
-    // Auth failure, network error, etc. — degrade gracefully to demo
-    return NextResponse.json({ prices: getMockPrices(node, date), isDemo: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ prices: getMockPrices(node, date), isDemo: true, debugReason: msg });
   }
 }
