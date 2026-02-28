@@ -2,7 +2,6 @@ export interface BessConfig {
   powerMW: number;
   durationHours: number;
   rte: number;        // 0–1
-  cyclesPerDay: number;
   vom: number;        // $/MWh of discharge
 }
 
@@ -36,10 +35,10 @@ export function calculateBessRevenue(
   prices: number[],
   config: BessConfig
 ): RevenueResult {
-  const { powerMW, durationHours, rte, cyclesPerDay, vom } = config;
+  const { powerMW, durationHours, rte, vom } = config;
 
   const hoursPerCycle = Math.max(1, Math.round(durationHours));
-  const numCycles = Math.max(1, Math.round(cyclesPerDay));
+  const numCycles = 1;
   const energyCap = powerMW * durationHours;
 
   // action map: hour → charge | discharge | idle

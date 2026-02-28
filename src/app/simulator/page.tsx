@@ -29,7 +29,6 @@ const DEFAULT_CONFIG: BessConfig = {
   powerMW: 100,
   durationHours: 2,
   rte: 0.85,
-  cyclesPerDay: 1,
   vom: 2.0,
 };
 
@@ -299,14 +298,6 @@ export default function SimulatorPage() {
             onChange={(v) => setField("rte", v / 100)}
           />
 
-          <PillGroup<number>
-            label="Cycles / Day"
-            options={[1, 2, 3]}
-            value={config.cyclesPerDay}
-            display={(v) => `${v}×`}
-            onChange={(v) => setField("cyclesPerDay", v)}
-          />
-
           <SliderControl
             label="VOM cost"
             value={config.vom}
@@ -324,10 +315,6 @@ export default function SimulatorPage() {
                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">
                   Dispatch Summary
                 </p>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Cycles executed</span>
-                  <span className="text-white font-semibold">{result.cyclesExecuted}</span>
-                </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-400">Avg charge price</span>
                   <span className="text-green-400 font-semibold">
