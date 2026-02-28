@@ -61,45 +61,65 @@ export function calculateBessRevenue(
 
     if (available.length < hoursPerCycle * 2) break;
 
-    // Cheapest N hours for charging
-    const sortedAsc = [...available].sort((a, b) => prices[a] - prices[b]);
-    const chargeHours = sortedAsc.slice(0, hoursPerCycle);
-    const chargeSet = new Set(chargeHours);
+    // Find the best charge→discharge split by trying every possible dividing
+    // hour T. Hours before T are candidates for charging; hours from T onwards
+    // are candidates for discharging. This guarantees charge always precedes
+    // discharge within each cycle.
+    let bestProfit = -Infinity;
+    let bestChargeHours: number[] = [];
+    let bestDischargeHours: number[] = [];
+    let bestGrossRev = 0;
+    let bestChargeCost = 0;
+    let bestVomCost = 0;
 
-    // Most expensive N hours (excluding charge hours) for discharging
-    const remainingAvailable = available.filter((h) => !chargeSet.has(h));
-    const sortedDesc = [...remainingAvailable].sort(
-      (a, b) => prices[b] - prices[a]
-    );
-    const dischargeHours = sortedDesc.slice(0, hoursPerCycle);
+    for (let T = hoursPerCycle; T <= 24 - hoursPerCycle; T++) {
+      const leftAvail = available.filter((h) => h < T);
+      const rightAvail = available.filter((h) => h >= T);
 
-    if (dischargeHours.length < hoursPerCycle) break;
+      if (leftAvail.length < hoursPerCycle || rightAvail.length < hoursPerCycle) continue;
 
-    const avgChargeP = mean(chargeHours.map((h) => prices[h]));
-    const avgDischargeP = mean(dischargeHours.map((h) => prices[h]));
+      const chargeHours = [...leftAvail]
+        .sort((a, b) => prices[a] - prices[b])
+        .slice(0, hoursPerCycle);
+      const dischargeHours = [...rightAvail]
+        .sort((a, b) => prices[b] - prices[a])
+        .slice(0, hoursPerCycle);
 
-    const grossRev = powerMW * avgDischargeP * hoursPerCycle;
-    const chargeCost = (powerMW / rte) * avgChargeP * hoursPerCycle;
-    const vomCost = powerMW * hoursPerCycle * vom;
-    const netProfit = grossRev - chargeCost - vomCost;
+      const avgChargeP = mean(chargeHours.map((h) => prices[h]));
+      const avgDischargeP = mean(dischargeHours.map((h) => prices[h]));
 
-    // Commercial guardrail — skip unprofitable cycle
-    if (netProfit <= 0) continue;
+      const grossRev = powerMW * avgDischargeP * hoursPerCycle;
+      const chargeCost = (powerMW / rte) * avgChargeP * hoursPerCycle;
+      const vomCost = powerMW * hoursPerCycle * vom;
+      const profit = grossRev - chargeCost - vomCost;
 
-    for (const h of chargeHours) {
+      if (profit > bestProfit) {
+        bestProfit = profit;
+        bestChargeHours = chargeHours;
+        bestDischargeHours = dischargeHours;
+        bestGrossRev = grossRev;
+        bestChargeCost = chargeCost;
+        bestVomCost = vomCost;
+      }
+    }
+
+    // Commercial guardrail — skip if no profitable split exists
+    if (bestProfit <= 0) continue;
+
+    for (const h of bestChargeHours) {
       actions[h] = "charge";
       usedHours.add(h);
       allChargePrices.push(prices[h]);
     }
-    for (const h of dischargeHours) {
+    for (const h of bestDischargeHours) {
       actions[h] = "discharge";
       usedHours.add(h);
       allDischargePrices.push(prices[h]);
     }
 
-    totalGrossRevenue += grossRev;
-    totalChargingCost += chargeCost;
-    totalVomCost += vomCost;
+    totalGrossRevenue += bestGrossRev;
+    totalChargingCost += bestChargeCost;
+    totalVomCost += bestVomCost;
     cyclesExecuted++;
   }
 
