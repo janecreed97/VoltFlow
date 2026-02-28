@@ -207,6 +207,20 @@ export function calculateComprehensiveRevenue(
   let soc = 50; // start at 50%
   const dispatch: DispatchInterval[] = [];
 
+  // Fix 1: Economically meaningful discharge threshold.
+  // The greedy solver must cover the full round-trip cost before dispatching:
+  //   chargeThreshold/rte  → energy cost to recharge what was discharged
+  //   vom*(1 + 1/oneWayEff) → VOM on both the discharge leg and the recharge leg
+  // Without this, breakEven ≈ $2.94 triggers full discharge at overnight prices,
+  // the SoC floor is hit every few intervals, a cheap tick recharges one step,
+  // and the cycle repeats → classic bang-bang chattering.
+  const dischargeThreshold = chargeThreshold / rte + variableOM * (1 + 1 / oneWayEff);
+
+  // Fix 2b: Direction state — cannot flip from charging to discharging (or vice versa)
+  // in a single 5-min interval; must pass through idle first.
+  // Prevents the ±200 MW cliff that causes the flickering visual artifact.
+  let prevNetMW = 0; // positive = net discharge, negative = net charge
+
   let totalEnergyRevenue = 0;
   let totalRegUpRevenue = 0;
   let totalRegDownRevenue = 0;
@@ -228,42 +242,48 @@ export function calculateComprehensiveRevenue(
     const regDownMW = asRegDownMW[i];
     const nonSpinMW = asNonSpinMW[i];
 
-    // Discharged MW to satisfy any as obligations that activate
-    // (for revenue calc, we assume ECRS/RRS/RegUp don't actually discharge unless activated;
-    // we only book capacity revenue here)
-    const asDischargedMW = 0;
+    // Fix 2a: AS capacity envelope — energy dispatch must leave room for committed AS.
+    // Under RTC+B, RegUp/ECRS/RRS capacity is reserved; you cannot sell that MW
+    // as energy in the same interval. RegDown similarly reserves charge-side headroom.
+    const asReservedDischargeMW = ecrsMW + rrsMW + regUpMW;
+    const asReservedChargeMW = regDownMW;
 
     // Available MW for energy dispatch
-    // Discharge: available SoC above (minSoC + reserved), limited by power capacity
+    // Discharge: available SoC above (minSoC + reserved), capped by remaining inverter headroom
     const socAboveMin = soc / 100 - minSoC - reserved / 100;
     const availDischargeMWh = clamp(socAboveMin * energyCapacityMWh, 0, Infinity);
     const availDischargeMW = clamp(
       availDischargeMWh * oneWayEff * (1 / Δt),
       0,
-      powerCapacityMW - asDischargedMW
+      powerCapacityMW - asReservedDischargeMW
     );
 
-    // Charge: available headroom below 100%, limited by power capacity
+    // Charge: available headroom below 100%, capped by remaining inverter headroom
     const socHeadroom = 1 - soc / 100;
     const availChargeMWh = clamp(socHeadroom * energyCapacityMWh, 0, Infinity);
     const availChargeMW = clamp(
       availChargeMWh / oneWayEff * (1 / Δt),
       0,
-      powerCapacityMW
+      powerCapacityMW - asReservedChargeMW
     );
 
     let dischargeMW = 0;
     let chargeMW = 0;
 
-    const breakEven = variableOM / (oneWayEff * oneWayEff);
+    const wasCharging = prevNetMW < 0;
+    const wasDischarging = prevNetMW > 0;
 
-    if (lmp > breakEven && availDischargeMW > 0) {
-      // Discharge when LMP beats break-even
+    if (lmp > dischargeThreshold && availDischargeMW > 0 && !wasCharging) {
+      // Discharge only when LMP beats the full round-trip break-even,
+      // and only if not currently in a charging state (must go through idle).
       dischargeMW = availDischargeMW;
-    } else if (lmp < chargeThreshold && availChargeMW > 0) {
-      // Charge when LMP is in the cheap 25th percentile
+    } else if (lmp < chargeThreshold && availChargeMW > 0 && !wasDischarging) {
+      // Charge during the cheapest quartile of the day,
+      // and only if not currently in a discharging state.
       chargeMW = availChargeMW;
     }
+
+    prevNetMW = dischargeMW - chargeMW;
 
     // SoC update (separate efficiency per direction)
     soc += (chargeMW * oneWayEff * Δt / energyCapacityMWh) * 100;
