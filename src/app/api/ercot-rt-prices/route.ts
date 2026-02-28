@@ -46,7 +46,8 @@ function smoothLmp(interval: number, mult: number, jitter: number): number {
   } else {
     base = 38 - 4 * ((hour - 22) / 2);
   }
-  const spikeSeed = Math.sin(interval * 2.7 + jitter * 10) * 0.5 + 0.5;
+  const raw = Math.sin(interval * 127.1 + jitter * 100) * 43758.5453;
+  const spikeSeed = raw - Math.floor(raw); // uniform [0, 1)
   if (spikeSeed > 0.97) base += 200 + spikeSeed * 250;
   const noise = 1 + Math.sin(interval * 1.3 + jitter * 5) * 0.08;
   return Math.max(5, parseFloat((base * mult * noise * (1 + jitter)).toFixed(2)));

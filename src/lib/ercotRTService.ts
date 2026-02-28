@@ -47,8 +47,9 @@ function smoothLmp(interval: number, nodeMultiplier: number, jitter: number): nu
     base = 38 - 4 * ((hour - 22) / 2);
   }
 
-  // Occasional price spikes (roughly 3% of intervals)
-  const spikeSeed = Math.sin(interval * 2.7 + jitter * 10) * 0.5 + 0.5;
+  // Occasional price spikes (~3% of intervals, random-looking via fractional hash)
+  const raw = Math.sin(interval * 127.1 + jitter * 100) * 43758.5453;
+  const spikeSeed = raw - Math.floor(raw); // uniform [0, 1)
   if (spikeSeed > 0.97) {
     base += 200 + spikeSeed * 250;
   }
